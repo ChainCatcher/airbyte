@@ -27,6 +27,7 @@ import io.airbyte.cdk.load.write.BatchAccumulator
 import io.airbyte.cdk.load.write.StreamStateStore
 import io.airbyte.cdk.load.write.object_storage.PartToObjectAccumulator
 import io.airbyte.cdk.load.write.object_storage.RecordToPartAccumulator
+import io.airbyte.integrations.destination.mssql.v2.config.MSSQLConfiguration
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.atomic.AtomicLong
 import javax.sql.DataSource
@@ -40,7 +41,7 @@ class MSSQLBulkLoadStreamLoader(
     bulkUploadDataSource: String,
     private val defaultSchema: String,
     private val azureBlobClient: AzureBlobClient,
-    private val validateValuesPreLoad: Boolean,
+    private val config: MSSQLConfiguration,
     private val recordBatchSizeOverride: Long? = null,
     private val streamStateStore: StreamStateStore<MSSQLStreamState>,
     destinationConfig: DestinationConfiguration,
@@ -69,7 +70,7 @@ class MSSQLBulkLoadStreamLoader(
     override suspend fun start() {
         super.start() // calls ensureTableExists()
         formatFilePath = mssqlFormatFileCreator.createAndUploadFormatFile(defaultSchema).key
-        val state = MSSQLStreamState(dataSource, formatFilePath)
+        val state = MSSQLBulkLoaderStreamState(dataSource, formatFilePath)
         streamStateStore.put(stream.descriptor, state)
     }
 
@@ -89,7 +90,7 @@ class MSSQLBulkLoadStreamLoader(
     override suspend fun createBatchAccumulator(): BatchAccumulator {
         val writerFactory =
             BufferedFormattingWriterFactory(
-                MssqlObjectStorageFormattingWriterFactory(validateValuesPreLoad),
+                MssqlObjectStorageFormattingWriterFactory(config),
                 NoOpCompressionProvider()
             )
 
@@ -205,7 +206,16 @@ class MSSQLBulkLoadStreamLoader(
  * For use by the new interface (to pass stream state creating during `start` to the BulkLoad
  * loader.)
  */
-data class MSSQLStreamState(
-    val dataSource: DataSource,
-    val formatFilePath: String,
-)
+sealed interface MSSQLStreamState {
+    val dataSource: DataSource
+}
+
+data class MSSQLBulkLoaderStreamState(
+    override val dataSource: DataSource,
+    val formatFilePath: String
+) : MSSQLStreamState
+
+data class MSSQLDirectLoaderStreamState(
+    override val dataSource: DataSource,
+    val sqlBuilder: MSSQLQueryBuilder
+) : MSSQLStreamState

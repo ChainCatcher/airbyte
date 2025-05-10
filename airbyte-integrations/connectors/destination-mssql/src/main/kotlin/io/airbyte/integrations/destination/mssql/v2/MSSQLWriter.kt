@@ -53,7 +53,7 @@ class MSSQLWriter(
                     defaultSchema = config.schema,
                     azureBlobClient =
                         AzureBlobStorageClientCreator.createAzureBlobClient(loadConfig),
-                    validateValuesPreLoad = loadConfig.validateValuesPreLoad ?: false,
+                    config,
                     recordBatchSizeOverride = recordBatchSizeOverride,
                     streamStateStore = streamStateStore,
                     destinationConfig,
@@ -63,7 +63,8 @@ class MSSQLWriter(
                 MSSQLStreamLoader(
                     dataSource = dataSourceNotNull,
                     stream = stream,
-                    sqlBuilder = sqlBuilder
+                    sqlBuilder = sqlBuilder,
+                    streamStateStore = streamStateStore
                 )
             }
         }
