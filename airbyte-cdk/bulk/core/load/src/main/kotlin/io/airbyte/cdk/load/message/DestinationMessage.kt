@@ -33,6 +33,7 @@ import io.airbyte.cdk.load.util.deserializeToNode
 import io.airbyte.protocol.models.v0.AirbyteGlobalState
 import io.airbyte.protocol.models.v0.AirbyteMessage
 import io.airbyte.protocol.models.v0.AirbyteRecordMessage
+import io.airbyte.protocol.models.v0.AirbyteRecordMessageFileReference
 import io.airbyte.protocol.models.v0.AirbyteRecordMessageMeta
 import io.airbyte.protocol.models.v0.AirbyteRecordMessageMetaChange
 import io.airbyte.protocol.models.v0.AirbyteRecordMessageMetaChange.*
@@ -46,11 +47,12 @@ import io.micronaut.context.annotation.Value
 import jakarta.inject.Singleton
 import java.math.BigInteger
 import java.time.OffsetDateTime
+import java.util.SequencedMap
 import java.util.UUID
 
 /**
  * Internal representation of destination messages. These are intended to be specialized for
- * usability. Data should be marshalled to these from frontline deserialized objects.
+ * usability. Data should be unmarshalled to these from front-line deserialized objects.
  */
 sealed interface DestinationMessage {
     fun asProtocolMessage(): AirbyteMessage
@@ -126,6 +128,12 @@ data class Meta(
                 COLUMN_NAME_AB_GENERATION_ID,
             )
 
+        /**
+         * A legacy column name. Destinations with "typing and deduping" used this in the raw tables
+         * to indicate when a record went through T+D.
+         */
+        const val COLUMN_NAME_AB_LOADED_AT: String = "_airbyte_loaded_at"
+
         fun getMetaValue(metaColumnName: String, value: String): AirbyteValue {
             if (!COLUMN_NAMES.contains(metaColumnName)) {
                 throw IllegalArgumentException("Invalid meta column name: $metaColumnName")
@@ -148,8 +156,8 @@ data class Meta(
                         TimestampWithTimezoneValue(
                             OffsetDateTime.parse(
                                 value,
-                                AirbyteValueDeepCoercingMapper.DATE_TIME_FORMATTER
-                            )
+                                AirbyteValueDeepCoercingMapper.DATE_TIME_FORMATTER,
+                            ),
                         )
                     }
                 }
@@ -158,7 +166,7 @@ data class Meta(
                 COLUMN_NAME_DATA -> toObjectValue(value.deserializeToNode())
                 else ->
                     throw NotImplementedError(
-                        "Column name $metaColumnName is not yet supported. This is probably a bug."
+                        "Column name $metaColumnName is not yet supported. This is probably a bug.",
                     )
             }
         }
@@ -196,9 +204,9 @@ data class DestinationRecord(
             message.record.emittedAt,
             Meta(
                 message.record.meta?.changes?.map { Meta.Change(it.field, it.change, it.reason) }
-                    ?: emptyList()
+                    ?: emptyList(),
             ),
-            serialized.length.toLong()
+            serialized.length.toLong(),
         )
     }
     fun asDestinationRecordRaw(): DestinationRecordRaw {
@@ -223,8 +231,8 @@ data class DestinationRecordAirbyteValue(
 
 data class EnrichedDestinationRecordAirbyteValue(
     val stream: DestinationStream,
-    val declaredFields: Map<String, EnrichedAirbyteValue>,
-    val undeclaredFields: Map<String, JsonNode>,
+    val declaredFields: LinkedHashMap<String, EnrichedAirbyteValue>,
+    val undeclaredFields: LinkedHashMap<String, JsonNode>,
     val emittedAtMs: Long,
     /**
      * The airbyte_meta field as received by the destination connector. Note that this field is NOT
@@ -288,12 +296,31 @@ data class EnrichedDestinationRecordAirbyteValue(
         get() = declaredFields + airbyteMetaFields
 }
 
+data class FileReference(
+    val stagingFileUrl: String,
+    val sourceFileRelativePath: String,
+    val fileSizeBytes: Long,
+) {
+    companion object {
+        fun fromProtocol(proto: AirbyteRecordMessageFileReference): FileReference =
+            FileReference(
+                proto.stagingFileUrl,
+                proto.sourceFileRelativePath,
+                proto.fileSizeBytes,
+            )
+    }
+}
+
 data class DestinationRecordRaw(
     val stream: DestinationStream,
-    private val rawData: AirbyteMessage,
-    private val serialized: String,
-    private val schema: AirbyteType
+    val rawData: AirbyteMessage,
+    val serialized: String,
+    val schema: AirbyteType,
 ) {
+    val fileReference: FileReference? =
+        rawData.record?.fileReference?.let { FileReference.fromProtocol(it) }
+    val serializedSizeBytes = serialized.length
+
     fun asRawJson(): JsonNode {
         return rawData.record.data
     }
@@ -305,9 +332,9 @@ data class DestinationRecordRaw(
             rawData.record.emittedAt,
             Meta(
                 rawData.record.meta?.changes?.map { Meta.Change(it.field, it.change, it.reason) }
-                    ?: emptyList()
+                    ?: emptyList(),
             ),
-            serialized.length.toLong()
+            serialized.length.toLong(),
         )
     }
 
@@ -321,45 +348,42 @@ data class DestinationRecordRaw(
     fun asEnrichedDestinationRecordAirbyteValue(): EnrichedDestinationRecordAirbyteValue {
         val rawJson = asRawJson()
 
-        // Get the set of field names defined in the schema
-        val schemaFields =
+        // Get the fields from the schema
+        val schemaFields: SequencedMap<String, FieldType> =
             when (schema) {
-                is ObjectType -> schema.properties.keys
-                else -> emptySet()
+                is ObjectType -> schema.properties
+                else -> linkedMapOf()
             }
 
-        val declaredFields = mutableMapOf<String, EnrichedAirbyteValue>()
-        val undeclaredFields = mutableMapOf<String, JsonNode>()
+        val declaredFields = LinkedHashMap<String, EnrichedAirbyteValue>()
+        val undeclaredFields = LinkedHashMap<String, JsonNode>()
 
-        // Process fields from the raw JSON
+        // Process fields from the raw JSON.
+        // First, get the declared fields, in the order defined by the catalog
+        schemaFields.forEach { (fieldName, fieldType) ->
+            if (!rawJson.has(fieldName)) {
+                return@forEach
+            }
+
+            val fieldValue = rawJson[fieldName]
+            val enrichedValue =
+                EnrichedAirbyteValue(
+                    abValue = NullValue,
+                    type = fieldType.type,
+                    name = fieldName,
+                    airbyteMetaField = null,
+                )
+            AirbyteValueCoercer.coerce(fieldValue.toAirbyteValue(), fieldType.type)?.let {
+                enrichedValue.abValue = it
+            }
+                ?: enrichedValue.nullify(Reason.DESTINATION_SERIALIZATION_ERROR)
+
+            declaredFields[fieldName] = enrichedValue
+        }
+        // Then, get the undeclared fields
         rawJson.fields().forEach { (fieldName, fieldValue) ->
-            when {
-                schemaFields.contains(fieldName) -> {
-                    // Declared field (exists in schema)
-                    val fieldType =
-                        (schema as ObjectType).properties[fieldName]?.type
-                            ?: throw IllegalStateException(
-                                "Field '$fieldName' exists in schema keys but not in properties"
-                            )
-
-                    val enrichedValue =
-                        EnrichedAirbyteValue(
-                            abValue = NullValue,
-                            type = fieldType,
-                            name = fieldName,
-                            airbyteMetaField = null,
-                        )
-                    AirbyteValueCoercer.coerce(fieldValue.toAirbyteValue(), fieldType)?.let {
-                        enrichedValue.abValue = it
-                    }
-                        ?: enrichedValue.nullify(Reason.DESTINATION_SERIALIZATION_ERROR)
-
-                    declaredFields[fieldName] = enrichedValue
-                }
-                else -> {
-                    // Undeclared field (not in schema)
-                    undeclaredFields[fieldName] = fieldValue
-                }
+            if (!schemaFields.contains(fieldName)) {
+                undeclaredFields[fieldName] = fieldValue
             }
         }
 
@@ -407,7 +431,7 @@ data class DestinationFile(
                 bytes = null,
                 fileRelativePath = null,
                 modified = null,
-                sourceFileUrl = null
+                sourceFileUrl = null,
             )
 
         @get:JsonProperty("file_url")
@@ -453,7 +477,7 @@ data class DestinationFile(
                     .withStream(stream.descriptor.name)
                     .withNamespace(stream.descriptor.namespace)
                     .withEmittedAt(emittedAtMs)
-                    .withAdditionalProperty("file", file)
+                    .withAdditionalProperty("file", file),
             )
     }
 }
@@ -472,8 +496,8 @@ private fun statusToProtocolMessage(
                 .withStreamStatus(
                     AirbyteStreamStatusTraceMessage()
                         .withStreamDescriptor(stream.asProtocolObject())
-                        .withStatus(status)
-                )
+                        .withStatus(status),
+                ),
         )
 
 data class DestinationRecordStreamComplete(
@@ -558,7 +582,7 @@ data class StreamCheckpoint(
     ) : this(
         Checkpoint(
             DestinationStream.Descriptor(streamNamespace, streamName),
-            state = blob.deserializeToNode()
+            state = blob.deserializeToNode(),
         ),
         Stats(sourceRecordCount),
         destinationRecordCount?.let { Stats(it) },
@@ -604,7 +628,7 @@ data class GlobalCheckpoint(
                 .withGlobal(
                     AirbyteGlobalState()
                         .withSharedState(state)
-                        .withStreamStates(checkpoints.map { it.asProtocolObject() })
+                        .withStreamStates(checkpoints.map { it.asProtocolObject() }),
                 )
         decorateStateMessage(stateMessage)
         return AirbyteMessage().withType(AirbyteMessage.Type.STATE).withState(stateMessage)
@@ -617,7 +641,7 @@ data object Undefined : DestinationMessage {
         // Arguably we could accept the raw message in the constructor?
         // But that seems weird - when would we ever want to reemit that message?
         throw NotImplementedError(
-            "Unrecognized messages cannot be safely converted back to a protocol object."
+            "Unrecognized messages cannot be safely converted back to a protocol object.",
         )
     }
 }
@@ -641,7 +665,7 @@ class DestinationMessageFactory(
                     is Long -> it
                     else ->
                         throw IllegalArgumentException(
-                            "Unexpected value for $name: $it (${it::class.qualifiedName})"
+                            "Unexpected value for $name: $it (${it::class.qualifiedName})",
                         )
                 }
             }
@@ -671,12 +695,12 @@ class DestinationMessageFactory(
                                     fileRelativePath = fileMessage["file_relative_path"] as String?,
                                     modified =
                                         toLong(fileMessage["modified"], "message.record.modified"),
-                                    sourceFileUrl = fileMessage["source_file_url"] as String?
-                                )
+                                    sourceFileUrl = fileMessage["source_file_url"] as String?,
+                                ),
                         )
                     } catch (e: Exception) {
                         throw IllegalArgumentException(
-                            "Failed to construct file message: ${e.message}"
+                            "Failed to construct file message: ${e.message}",
                         )
                     }
                 } else {
@@ -699,24 +723,24 @@ class DestinationMessageFactory(
                             if (fileTransferEnabled) {
                                 DestinationFileStreamComplete(
                                     stream,
-                                    message.trace.emittedAt?.toLong() ?: 0L
+                                    message.trace.emittedAt?.toLong() ?: 0L,
                                 )
                             } else {
                                 DestinationRecordStreamComplete(
                                     stream,
-                                    message.trace.emittedAt?.toLong() ?: 0L
+                                    message.trace.emittedAt?.toLong() ?: 0L,
                                 )
                             }
                         AirbyteStreamStatus.INCOMPLETE ->
                             if (fileTransferEnabled) {
                                 DestinationFileStreamIncomplete(
                                     stream,
-                                    message.trace.emittedAt?.toLong() ?: 0L
+                                    message.trace.emittedAt?.toLong() ?: 0L,
                                 )
                             } else {
                                 DestinationRecordStreamIncomplete(
                                     stream,
-                                    message.trace.emittedAt?.toLong() ?: 0L
+                                    message.trace.emittedAt?.toLong() ?: 0L,
                                 )
                             }
                         else -> Undefined
@@ -763,7 +787,7 @@ class DestinationMessageFactory(
         val descriptor = streamState.streamDescriptor
         return Checkpoint(
             stream = DestinationStream.Descriptor(descriptor.namespace, descriptor.name),
-            state = runCatching { streamState.streamState }.getOrNull()
+            state = runCatching { streamState.streamState }.getOrNull(),
         )
     }
 }

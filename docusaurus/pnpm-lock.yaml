@@ -5,7 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  dompurify: 3.2.4
+  dompurify: 3.1.6
   jsonpath-plus: 10.3.0
 
 importers:
@@ -204,9 +204,6 @@ importers:
       '@docusaurus/module-type-aliases':
         specifier: ^3.7.0
         version: 3.7.0(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
-      '@docusaurus/plugin-client-redirects':
-        specifier: ^3.7.0
-        version: 3.7.0(@mdx-js/react@3.0.0(@types/react@18.2.46)(react@18.2.0))(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(typescript@5.3.3)
       '@docusaurus/plugin-debug':
         specifier: ^3.7.0
         version: 3.7.0(@mdx-js/react@3.0.0(@types/react@18.2.46)(react@18.2.0))(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(typescript@5.3.3)
@@ -381,6 +378,10 @@ importers:
       yaml-loader:
         specifier: ^0.8.0
         version: 0.8.0
+    devDependencies:
+      prettier:
+        specifier: 3.5.3
+        version: 3.5.3
 
 packages:
 
@@ -2148,13 +2149,6 @@ packages:
       react: '*'
       react-dom: '*'
 
-  '@docusaurus/plugin-client-redirects@3.7.0':
-    resolution: {integrity: sha512-6B4XAtE5ZVKOyhPgpgMkb7LwCkN+Hgd4vOnlbwR8nCdTQhLjz8MHbGlwwvZ/cay2SPNRX5KssqKAlcHVZP2m8g==}
-    engines: {node: '>=18.0'}
-    peerDependencies:
-      react: ^18.0.0 || ^19.0.0
-      react-dom: ^18.0.0 || ^19.0.0
-
   '@docusaurus/plugin-content-blog@3.7.0':
     resolution: {integrity: sha512-EFLgEz6tGHYWdPU0rK8tSscZwx+AsyuBW/r+tNig2kbccHYGUJmZtYN38GjAa3Fda4NU+6wqUO5kTXQSRBQD3g==}
     engines: {node: '>=18.0'}
@@ -2756,9 +2750,6 @@ packages:
 
   '@types/sockjs@0.3.36':
     resolution: {integrity: sha512-MK9V6NzAS1+Ud7JV9lJLFqW85VbC9dq3LmwZCuBe4wBDgKC0Kj/jd8Xl+nSviU+Qc3+m7umHHyHg//2KSa0a0Q==}
-
-  '@types/trusted-types@2.0.7':
-    resolution: {integrity: sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw==}
 
   '@types/unist@2.0.10':
     resolution: {integrity: sha512-IfYcSBWE3hLpBg8+X2SEa8LVkJdJEkT2Ese2aaLs3ptGdVtABxndrMaxuFlQ1qdFf9Q5rDvDpxI3WwgvKFAsQA==}
@@ -3839,8 +3830,8 @@ packages:
     resolution: {integrity: sha512-cgwlv/1iFQiFnU96XXgROh8xTeetsnJiDsTc7TYCLFd9+/WNkIqPTxiM/8pSd8VIrhXGTf1Ny1q1hquVqDJB5w==}
     engines: {node: '>= 4'}
 
-  dompurify@3.2.4:
-    resolution: {integrity: sha512-ysFSFEDVduQpyhzAob/kkuJjf5zWkZD8/A9ywSp1byueyuCfHamrCBa14/Oc2iiB0e51B+NpxSl5gmzn+Ms/mg==}
+  dompurify@3.1.6:
+    resolution: {integrity: sha512-cTOAhc36AalkjtBpfG6O8JimdTMWNXjiePT2xQH/ppBGi/4uIpmj8eKyIkMJErXWARyINV/sB38yf8JCLF5pbQ==}
 
   domutils@2.8.0:
     resolution: {integrity: sha512-w96Cjofp72M5IIhpjgobBimYEfoPjx1Vx0BSX9P30WBdZW2WIKU0T1Bd0kz2eNZ9ikjKgHbEyKx8BB6H1L3h3A==}
@@ -6233,6 +6224,11 @@ packages:
 
   preact@10.19.3:
     resolution: {integrity: sha512-nHHTeFVBTHRGxJXKkKu5hT8C/YWBkPso4/Gad6xuj5dbptt9iF9NZr9pHbPhBrnT2klheu7mHTxTZ/LjwJiEiQ==}
+
+  prettier@3.5.3:
+    resolution: {integrity: sha512-QQtaxnoDJeAkDvDKWCLiwIXkTgRhwYDEQCghU9Z6q03iyek/rxRh/2lC3HB7P8sWT2xC/y5JDctPLBIGzHKbhw==}
+    engines: {node: '>=14'}
+    hasBin: true
 
   pretty-error@4.0.0:
     resolution: {integrity: sha512-AoJ5YMAcXKYxKhuJGdcvse+Voc6v1RgnsR3nWcYU7q4t6z0Q6T86sv5Zq8VIRbOWWFpvdGE83LtdSMNd+6Y0xw==}
@@ -9640,39 +9636,6 @@ snapshots:
       - uglify-js
       - webpack-cli
 
-  '@docusaurus/plugin-client-redirects@3.7.0(@mdx-js/react@3.0.0(@types/react@18.2.46)(react@18.2.0))(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(typescript@5.3.3)':
-    dependencies:
-      '@docusaurus/core': 3.7.0(@mdx-js/react@3.0.0(@types/react@18.2.46)(react@18.2.0))(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(typescript@5.3.3)
-      '@docusaurus/logger': 3.7.0
-      '@docusaurus/utils': 3.7.0(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
-      '@docusaurus/utils-common': 3.7.0(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
-      '@docusaurus/utils-validation': 3.7.0(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
-      eta: 2.2.0
-      fs-extra: 11.2.0
-      lodash: 4.17.21
-      react: 18.2.0
-      react-dom: 18.2.0(react@18.2.0)
-      tslib: 2.6.2
-    transitivePeerDependencies:
-      - '@docusaurus/faster'
-      - '@mdx-js/react'
-      - '@parcel/css'
-      - '@rspack/core'
-      - '@swc/core'
-      - '@swc/css'
-      - bufferutil
-      - csso
-      - debug
-      - esbuild
-      - eslint
-      - lightningcss
-      - supports-color
-      - typescript
-      - uglify-js
-      - utf-8-validate
-      - vue-template-compiler
-      - webpack-cli
-
   '@docusaurus/plugin-content-blog@3.7.0(@docusaurus/plugin-content-docs@3.7.0(@mdx-js/react@3.0.0(@types/react@18.2.46)(react@18.2.0))(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(typescript@5.3.3))(@mdx-js/react@3.0.0(@types/react@18.2.46)(react@18.2.0))(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(typescript@5.3.3)':
     dependencies:
       '@docusaurus/core': 3.7.0(@mdx-js/react@3.0.0(@types/react@18.2.46)(react@18.2.0))(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(typescript@5.3.3)
@@ -10804,9 +10767,6 @@ snapshots:
   '@types/sockjs@0.3.36':
     dependencies:
       '@types/node': 20.10.6
-
-  '@types/trusted-types@2.0.7':
-    optional: true
 
   '@types/unist@2.0.10': {}
 
@@ -12110,9 +12070,7 @@ snapshots:
     dependencies:
       domelementtype: 2.3.0
 
-  dompurify@3.2.4:
-    optionalDependencies:
-      '@types/trusted-types': 2.0.7
+  dompurify@3.1.6: {}
 
   domutils@2.8.0:
     dependencies:
@@ -13403,7 +13361,7 @@ snapshots:
       d3-sankey: 0.12.3
       dagre-d3-es: 7.0.10
       dayjs: 1.11.11
-      dompurify: 3.2.4
+      dompurify: 3.1.6
       elkjs: 0.9.3
       katex: 0.16.11
       khroma: 2.1.0
@@ -15056,6 +15014,8 @@ snapshots:
       source-map-js: 1.2.1
 
   preact@10.19.3: {}
+
+  prettier@3.5.3: {}
 
   pretty-error@4.0.0:
     dependencies:
