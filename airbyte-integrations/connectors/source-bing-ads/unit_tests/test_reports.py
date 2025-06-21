@@ -28,17 +28,9 @@ from source_bing_ads.report_streams import (
     AdGroupImpressionPerformanceReportHourly,
     AdGroupPerformanceReportDaily,
     AdGroupPerformanceReportHourly,
-    AdPerformanceReportDaily,
-    AdPerformanceReportHourly,
-    AgeGenderAudienceReportDaily,
-    AgeGenderAudienceReportHourly,
-    BingAdsReportingServicePerformanceStream,
-    BingAdsReportingServiceStream,
     BudgetSummaryReport,
     CampaignImpressionPerformanceReportDaily,
     CampaignImpressionPerformanceReportHourly,
-    CampaignPerformanceReportDaily,
-    CampaignPerformanceReportHourly,
     GeographicPerformanceReportDaily,
     GeographicPerformanceReportHourly,
     GeographicPerformanceReportMonthly,
@@ -49,6 +41,11 @@ from source_bing_ads.report_streams import (
     SearchQueryPerformanceReportHourly,
     UserLocationPerformanceReportDaily,
     UserLocationPerformanceReportHourly,
+)
+from source_bing_ads.reports import BingAdsReportingServicePerformanceStream, BingAdsReportingServiceStream
+from source_bing_ads.reports.ad_performance_report import (
+    AdPerformanceReportDaily,
+    AdPerformanceReportHourly,
 )
 from source_bing_ads.source import SourceBingAds
 from suds import WebFault
@@ -163,10 +160,8 @@ def test_get_updated_state_state_new_account():
         AccountPerformanceReportDaily,
         AdGroupImpressionPerformanceReportDaily,
         AdGroupPerformanceReportDaily,
-        AgeGenderAudienceReportDaily,
         AdPerformanceReportDaily,
         CampaignImpressionPerformanceReportDaily,
-        CampaignPerformanceReportDaily,
         KeywordPerformanceReportDaily,
         SearchQueryPerformanceReportDaily,
         UserLocationPerformanceReportDaily,
@@ -190,10 +185,8 @@ def test_get_report_record_timestamp_without_aggregation():
         AccountPerformanceReportHourly,
         AdGroupImpressionPerformanceReportHourly,
         AdGroupPerformanceReportHourly,
-        AgeGenderAudienceReportHourly,
         AdPerformanceReportHourly,
         CampaignImpressionPerformanceReportHourly,
-        CampaignPerformanceReportHourly,
         KeywordPerformanceReportHourly,
         SearchQueryPerformanceReportHourly,
         UserLocationPerformanceReportHourly,
@@ -450,7 +443,6 @@ def test_custom_performance_report_no_last_year_stream_slices(mocked_client, con
 @pytest.mark.parametrize(
     "stream, response, records",
     [
-        (CampaignPerformanceReportHourly, "hourly_reports/campaign_performance.csv", "hourly_reports/campaign_performance_records.json"),
         (AccountPerformanceReportHourly, "hourly_reports/account_performance.csv", "hourly_reports/account_performance_records.json"),
         (AdGroupPerformanceReportHourly, "hourly_reports/ad_group_performance.csv", "hourly_reports/ad_group_performance_records.json"),
         (AdPerformanceReportHourly, "hourly_reports/ad_performance.csv", "hourly_reports/ad_performance_records.json"),
@@ -465,7 +457,6 @@ def test_custom_performance_report_no_last_year_stream_slices(mocked_client, con
             "hourly_reports/geographic_performance.csv",
             "hourly_reports/geographic_performance_records.json",
         ),
-        (AgeGenderAudienceReportHourly, "hourly_reports/age_gender_audience.csv", "hourly_reports/age_gender_audience_records.json"),
         (
             SearchQueryPerformanceReportHourly,
             "hourly_reports/search_query_performance.csv",
